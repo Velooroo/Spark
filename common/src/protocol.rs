@@ -18,25 +18,7 @@ use tokio::io::{AsyncReadExt, AsyncWriteExt};
 //                  length=5              payload
 // ============================================================================
 
-/// Sends a length-prefixed message over TCP stream
-///
-/// The message is sent in two parts:
-/// 1. A 4-byte header containing the message length as u32 (big-endian)
-/// 2. The actual message data
-///
-/// # Arguments
-/// * `stream` - Mutable reference to an open TCP stream
-/// * `data`   - Message payload as byte slice
-///
-/// # Returns
-/// - `Ok(())` if the entire message was sent successfully
-/// - `Err` if network I/O fails
-///
-/// # Example
-/// ```
-/// let mut stream = TcpStream::connect("127.0.0.1:7530").await?;
-/// send_message(&mut stream, b"Hello, daemon!").await?;
-/// ```
+/// Send message with length prefix over TCP
 pub async fn send_message<S>(stream: &mut S, data: &[u8]) -> Result<()>
 where
     S: AsyncWriteExt + Unpin,
@@ -47,30 +29,7 @@ where
     Ok(())
 }
 
-/// Receives a length-prefixed message from TCP stream
-///
-/// This function reads a message in two steps:
-/// 1. Read 4-byte header to determine message length
-/// 2. Read exactly that many bytes as the payload
-///
-/// # Arguments
-/// * `stream` - Mutable reference to an open TCP stream
-///
-/// # Returns
-/// - `Ok(Vec<u8>)` containing the received message
-/// - `Err` if network I/O fails or connection closes unexpectedly
-///
-/// # Errors
-/// - Returns error if connection is closed before full message is received
-/// - Returns error if received length is unreasonably large (potential attack)
-///
-/// # Example
-/// ```
-/// let mut stream = TcpStream::connect("127.0.0.1:7530").await?;
-/// let message = recv_message(&mut stream).await?;
-/// let text = String::from_utf8_lossy(&message);
-/// println!("Received: {}", text);
-/// ```
+/// Receive message with length prefix from TCP
 pub async fn recv_message<S>(stream: &mut S) -> Result<Vec<u8>>
 where
     S: AsyncReadExt + Unpin,

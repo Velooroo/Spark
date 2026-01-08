@@ -1,5 +1,6 @@
 use anyhow::Result;
 use tokio::net::UdpSocket;
+use tracing::info;
 
 // ============================================================================
 // CLI FUNCTIONS
@@ -30,7 +31,7 @@ pub async fn run_discovery_client() -> Result<()> {
     // Enable broadcast mode for UDP socket
     socket.set_broadcast(true)?;
 
-    println!("📡 [CLI] Broadcasting discovery...");
+    info!("Broadcasting discovery...");
 
     // Send discovery message to all devices on port 7001
     socket
@@ -43,7 +44,7 @@ pub async fn run_discovery_client() -> Result<()> {
     // Wait for first response from any daemon
     let (_len, addr) = socket.recv_from(&mut buf).await?;
 
-    println!("✅ [CLI] Found device at: {}", addr);
+    info!("Found device at: {}", addr);
     Ok(())
 }
 
@@ -78,7 +79,7 @@ pub async fn run_discovery_server(port: u16) -> Result<()> {
     // Bind to specified port on all network interfaces
     let socket = UdpSocket::bind(format!("0.0.0.0:{}", port)).await?;
 
-    println!("👂 [Daemon] Listening for discovery on UDP {}", port);
+    info!("Listening for discovery on UDP {}", port);
 
     // Prepare buffer for incoming discovery messages
     let mut buf = [0; 1024];
@@ -93,7 +94,7 @@ pub async fn run_discovery_server(port: u16) -> Result<()> {
 
         // Check if this is a valid discovery request
         if msg == "SPARK_DISCOVER" {
-            println!("👋 [Daemon] Discovery ping from {}", addr);
+            info!("Discovery ping from {}", addr);
 
             // Send acknowledgment back to the client
             socket.send_to(b"SPARK_HERE", addr).await?;

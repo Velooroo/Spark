@@ -6,26 +6,25 @@ use tokio::net::TcpStream;
 use tokio_rustls::client::TlsStream as ClientTlsStream;
 use tokio_rustls::server::TlsStream as ServerTlsStream;
 use tokio_rustls::{TlsAcceptor, TlsConnector};
+use tracing::info;
 
 // ============================================================================
 // TLS WRAPPER - Configurable Certificates
 // ============================================================================
 
-/// Подключается к серверу с TLS (для CLI)
-/// Проверяет сертификат только если НЕ локальная сеть
+/// Connects to server with TLS (for CLI)
+/// Verifies certificate only if NOT local network
 pub async fn connect_tls(stream: TcpStream, host: &str) -> Result<ClientTlsStream<TcpStream>> {
     let is_local = is_local_network(host);
 
     let config = if is_local {
-        // Локалка: принимаем любой сертификат (self-signed ок)
-        println!("🔓 TLS without certificate verification (local network)");
+        info!("TLS without verification (local network)");
         rustls::ClientConfig::builder()
             .dangerous()
             .with_custom_certificate_verifier(Arc::new(NoCertVerifier))
             .with_no_client_auth()
     } else {
-        // Интернет: проверяем сертификат через системные CA
-        println!("🔒 TLS with full certificate verification");
+        info!("TLS with full verification");
         rustls::ClientConfig::builder()
             .with_root_certificates(load_system_ca_roots())
             .with_no_client_auth()
@@ -38,15 +37,15 @@ pub async fn connect_tls(stream: TcpStream, host: &str) -> Result<ClientTlsStrea
     Ok(tls_stream)
 }
 
-/// Принимает подключение с TLS (для Daemon)
+/// Accepts connection with TLS (for Daemon)
 pub async fn accept_tls(stream: TcpStream) -> Result<ServerTlsStream<TcpStream>> {
     let (cert_pem, key_pem) = match load_custom_certs() {
         Some((c, k)) => {
-            println!("🔐 Using custom TLS certificates");
+            info!("Using custom TLS certificates");
             (c, k)
         }
         None => {
-            println!("🔓 Generating self-signed certificate");
+            info!("Generating self-signed certificate");
             generate_self_signed()?
         }
     };
@@ -102,7 +101,7 @@ fn is_local_network(host: &str) -> bool {
 fn load_system_ca_roots() -> rustls::RootCertStore {
     let mut roots = rustls::RootCertStore::empty();
 
-    // Загружаем встроенную базу Mozilla CA (включает Let's Encrypt)
+    // Load built-in Mozilla CA database (includes Let's Encrypt)
     roots.extend(webpki_roots::TLS_SERVER_ROOTS.iter().cloned());
 
     roots

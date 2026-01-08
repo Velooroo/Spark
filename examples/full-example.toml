@@ -1,0 +1,41 @@
+# Полный пример Spark конфигурации
+# Скопируй в корень своего проекта как 'spark.toml'
+
+[app]
+name = "my-fullstack-app"
+version = "1.0.0"
+
+# Сборка приложения
+[build]
+command = "npm run build"
+
+# Запуск backend сервиса
+[run]
+command = "node dist/server.js"
+port = 3000
+
+# Автоматическая проверка здоровья (или через CLI --auto-health)
+auto_health = true
+
+# Изоляция процесса
+[isolation]
+type = "systemd"
+
+# Автоматическая настройка базы данных
+[database]
+type = "postgres"
+name = "app_db"
+user = "dbuser"
+password = "secret"
+port = 5432
+preseed = "./db/schema.sql"
+
+# Хуки для автоматизации
+[hooks]
+pre_deploy = "echo 'Starting deployment...'"
+post_deploy = "echo 'Deployment finished!'"
+
+# Уведомления
+[notify]
+on_success = ["mailto:admin@example.com"]
+on_fail = ["telegram:@alerts"]

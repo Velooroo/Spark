@@ -11,6 +11,7 @@ use crate::config::CommandConfig;
 use crate::deploy::gateway::{GatewayRoutes, SharedGatewayState, run_http_gateway};
 use crate::protocol::{recv_message, send_message};
 use crate::tls::{accept_tls, connect_tls};
+use tracing::{info, warn, error};
 
 pub use handler::handle_deploy_request;
 
@@ -20,40 +21,45 @@ pub struct DeployMessage {
     pub forge: String,
     pub auth_user: Option<String>,
     pub auth_password: Option<String>,
+    pub auto_health: bool,
 }
 
 // ============================================================================
 // DAEMON FUNCTIONS - TCP Server
 // ============================================================================
 
-pub async fn run_daemon_server(port: u16) -> Result<()> {
+pub async fn run_daemon_server(config: &CommandConfig) -> Result<()> {
+    let port = config.port.unwrap_or(7530);
     let addr = format!("0.0.0.0:{}", port);
     let listener = TcpListener::bind(&addr).await?;
-    println!("🔥 [Daemon] Listening on {}", addr);
+    info!("Daemon listening on {}", addr);
 
     let gateway_state: SharedGatewayState = Arc::new(RwLock::new(GatewayRoutes::default()));
 
     let state_clone = gateway_state.clone();
     tokio::spawn(async move {
         if let Err(e) = run_http_gateway(state_clone).await {
-            eprintln!("❌ Gateway crashed: {}", e);
+            tracing::error!("Gateway crashed: {}", e);
         }
     });
 
     loop {
         let (tcp, addr) = listener.accept().await?;
-        println!("🔌 [Daemon] Connection from {}", addr);
+        info!("Connection from {}", addr);
 
         let socket = match accept_tls(tcp).await {
             Ok(s) => s,
             Err(e) => {
-                eprintln!("❌ TLS handshake failed: {}", e);
+                error!("TLS handshake failed: {}", e);
                 continue;
             }
         };
 
         let state_for_handler = gateway_state.clone();
-        tokio::spawn(handle_deploy_request(socket, state_for_handler));
+        let config_clone = (*config).clone();
+        tokio::spawn(async move {
+            handle_deploy_request(socket, state_for_handler, &config_clone).await;
+        });
     }
 }
 
@@ -66,8 +72,8 @@ pub async fn run_deploy(config: CommandConfig) -> Result<()> {
     let port = config.port.unwrap();
 
     let tcp = TcpStream::connect(format!("{}:{}", host, port)).await?;
+    info!("Connected to {}:{}", host, port);
 
-    // Проверяем: локальная сеть или интернет?
     let use_tls = is_local_network(&host);
 
     let msg = DeployMessage {
@@ -75,31 +81,31 @@ pub async fn run_deploy(config: CommandConfig) -> Result<()> {
         forge: config.forge.unwrap(),
         auth_user: config.auth_user,
         auth_password: config.auth_password,
+        auto_health: config.auto_health,
     };
 
     let json = serde_json::to_vec(&msg)?;
 
-    // Отправляем через TLS или обычный TCP
     if use_tls {
-        println!("🔒 Using TLS (remote connection)");
+        info!("Using TLS for remote connection");
         let mut stream = connect_tls(tcp, &host).await?;
 
         send_message(&mut stream, &json).await?;
-        println!("✅ [CLI] Deploy request sent!");
+        info!("Deploy request sent");
 
         let response = recv_message(&mut stream).await?;
         let response_text = String::from_utf8_lossy(&response);
-        println!("📬 [Daemon response]: {}", response_text);
+        info!("Response: {}", response_text);
     } else {
-        println!("🔓 No TLS (local network)");
+        info!("Using plain TCP for local network");
         let mut stream = tcp;
 
         send_message(&mut stream, &json).await?;
-        println!("✅ [CLI] Deploy request sent!");
+        info!("Deploy request sent");
 
         let response = recv_message(&mut stream).await?;
         let response_text = String::from_utf8_lossy(&response);
-        println!("📬 [Daemon response]: {}", response_text);
+        info!("Response: {}", response_text);
     }
 
     Ok(())

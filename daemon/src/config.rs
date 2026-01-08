@@ -17,6 +17,7 @@ pub struct SparkFile {
     pub hooks: Option<HooksSection>,
     pub metrics: Option<MetricsSection>,
     pub strategy: Option<StrategySection>,
+    pub auto_health: Option<bool>, // Auto-add health check if missing
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -33,13 +34,13 @@ pub struct BuildSection {
 #[derive(Debug, Serialize, Deserialize)]
 pub struct RunSection {
     pub command: String,
-    pub port: u16,
+    pub port: Option<u16>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct WebSection {
-    pub domain: String,       // e.g. "mysite.local" or "mysite.com"
-    pub root: Option<String>, // folder with index.html (e.g. "dist" or ".")
+    pub domain: String,
+    pub root: Option<String>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -50,12 +51,12 @@ pub struct HealthSection {
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct IsolationSection {
-    pub r#type: String, // systemd, chroot, none
+    pub r#type: String,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct StorageSection {
-    pub r#type: String, // s3, minio, local
+    pub r#type: String,
     pub bucket: Option<String>,
     pub endpoint: Option<String>,
     pub access_key: Option<String>,
@@ -67,7 +68,7 @@ pub struct StorageSection {
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct DatabaseSection {
-    pub r#type: String, // postgres, mysql, sqlite
+    pub r#type: String,
     pub name: Option<String>,
     pub user: Option<String>,
     pub password: Option<String>,
@@ -108,7 +109,7 @@ pub struct MetricsSection {
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct StrategySection {
-    pub r#type: String, // canary, bluegreen, rolling
+    pub r#type: String,
     pub percent: Option<u8>,
     pub wait_time: Option<String>,
 }
