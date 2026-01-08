@@ -1,0 +1,13 @@
+[package]
+name = "spark-full"
+version = "0.1.0"
+edition = "2024"
+
+[workspace]
+members = [
+    "cli",
+    "daemon",
+    "common"  # Общие типы (протокол общения)
+]
+
+[dependencies]
