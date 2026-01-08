@@ -10,52 +10,74 @@ on:
 
 jobs:
   create-release:
-    name: Create GitHub Release
+    name: 🚀 Create GitHub Release
     runs-on: ubuntu-latest
     steps:
-      - name: Create Release for tag
+      - name: 📦 Create Release for tag
         uses: softprops/action-gh-release@v1
         with:
           draft: false
           prerelease: false
+      - name: 📝 Summary
+        run: |
+          echo "# Release triggered" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Tag: ${GITHUB_REF#refs/tags/}" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Jobs: Linux, macOS, Windows" >> "$GITHUB_STEP_SUMMARY"
 
   linux:
-    name: Linux (ubuntu-latest)
+    name: 🐧 Linux (ubuntu-latest)
     runs-on: ubuntu-latest
     needs: create-release
     steps:
-      - uses: actions/checkout@v3
+      - name: 🔄 Checkout
+        uses: actions/checkout@v3
 
-      - name: Install Rust
+      - name: 🛠️ Install Rust
         uses: dtolnay/rust-toolchain@stable
 
-      - name: Build workspace (release)
-        run: cargo build --release --all
+      - name: 🏗 Build workspace (release)
+        run: |
+          echo "::group::Compile (cargo build --release --all)"
+          cargo build --release --all
+          echo "::endgroup::"
+          echo "::notice title=Linux Build::Binaries in target/release"
 
-      - name: Prepare artifact names
+      - name: 🎛 Prepare names
         id: names
         shell: bash
         run: |
           VERSION="${GITHUB_REF#refs/tags/}"
           echo "VERSION=$VERSION" >> "$GITHUB_OUTPUT"
-          echo "SPARK_BARE=spark-${VERSION}-linux-amd64"     >> "$GITHUB_OUTPUT"
-          echo "SPARK_TARGZ=spark-${VERSION}-linux-amd64.tar.gz"  >> "$GITHUB_OUTPUT"
-          echo "SPARKLE_BARE=sparkle-${VERSION}-linux-amd64"   >> "$GITHUB_OUTPUT"
-          echo "SPARKLE_TARGZ=sparkle-${VERSION}-linux-amd64.tar.gz" >> "$GITHUB_OUTPUT"
+          echo "SPARK_BARE=os/linux/spark-${VERSION}-linux-amd64" >> "$GITHUB_OUTPUT"
+          echo "SPARK_TARGZ=os/linux/spark-${VERSION}-linux-amd64.tar.gz" >> "$GITHUB_OUTPUT"
+          echo "SPARKLE_BARE=os/linux/sparkle-${VERSION}-linux-amd64" >> "$GITHUB_OUTPUT"
+          echo "SPARKLE_TARGZ=os/linux/sparkle-${VERSION}-linux-amd64.tar.gz" >> "$GITHUB_OUTPUT"
+          echo "BUNDLE=os/linux/linux-amd64-${VERSION}.tar.gz" >> "$GITHUB_OUTPUT"
 
-      - name: Rename copies (bare binaries)
+      - name: 📁 Arrange assets (bare + bundle)
         shell: bash
         run: |
+          set -e
+          test -f target/release/spark
+          test -f target/release/sparkle
+          mkdir -p os/linux bundle/linux/all bundle/linux/spark bundle/linux/sparkle
+
+          # Bare copies with folder-like names
           cp "target/release/spark"   "${{ steps.names.outputs.SPARK_BARE }}"
           cp "target/release/sparkle" "${{ steps.names.outputs.SPARKLE_BARE }}"
 
-      - name: Create tar.gz archives
-        shell: bash
-        run: |
+          # Structured bundle
+          cp target/release/spark   bundle/linux/all/
+          cp target/release/sparkle bundle/linux/all/
+          cp target/release/spark   bundle/linux/spark/
+          cp target/release/sparkle bundle/linux/sparkle/
+          tar -czf "${{ steps.names.outputs.BUNDLE }}" -C bundle/linux .
+
+          # Individual tar.gz (optional extras)
           tar -czf "${{ steps.names.outputs.SPARK_TARGZ }}"   -C target/release spark
           tar -czf "${{ steps.names.outputs.SPARKLE_TARGZ }}" -C target/release sparkle
 
-      - name: Upload Linux assets
+      - name: 🚀 Upload Linux assets
         uses: softprops/action-gh-release@v1
         with:
           files: |
@@ -63,44 +85,77 @@ jobs:
             ${{ steps.names.outputs.SPARKLE_BARE }}
             ${{ steps.names.outputs.SPARK_TARGZ }}
             ${{ steps.names.outputs.SPARKLE_TARGZ }}
+            ${{ steps.names.outputs.BUNDLE }}
+
+      - name: 🧾 Summary (Linux)
+        shell: bash
+        run: |
+          VERSION="${GITHUB_REF#refs/tags/}"
+          SIZE_SPARK=$(stat -c%s target/release/spark || echo 0)
+          SIZE_SPARKLE=$(stat -c%s target/release/sparkle || echo 0)
+          {
+            echo "## Linux ✅"
+            echo ""
+            echo "| Artifact | Size (bytes) | Asset name |"
+            echo "| --- | ---: | --- |"
+            echo "| spark | ${SIZE_SPARK} | ${{ steps.names.outputs.SPARK_BARE }} |"
+            echo "| sparkle | ${SIZE_SPARKLE} | ${{ steps.names.outputs.SPARKLE_BARE }} |"
+            echo ""
+            echo "- 📦 Extra: ${{ steps.names.outputs.SPARK_TARGZ }}, ${{ steps.names.outputs.SPARKLE_TARGZ }}"
+            echo "- 🗂 Bundle: ${{ steps.names.outputs.BUNDLE }}"
+          } >> "$GITHUB_STEP_SUMMARY"
 
   macos:
-    name: macOS (macos-latest)
+    name: 🍎 macOS (macos-latest)
     runs-on: macos-latest
     needs: create-release
     steps:
-      - uses: actions/checkout@v3
+      - name: 🔄 Checkout
+        uses: actions/checkout@v3
 
-      - name: Install Rust
+      - name: 🛠️ Install Rust
         uses: dtolnay/rust-toolchain@stable
 
-      - name: Build workspace (release)
-        run: cargo build --release --all
+      - name: 🏗️ Build workspace (release)
+        run: |
+          echo "::group::Compile (cargo build --release --all)"
+          cargo build --release --all
+          echo "::endgroup::"
+          echo "::notice title=macOS Build::Binaries in target/release"
 
-      - name: Prepare artifact names
+      - name: 🎛 Prepare names
         id: names
         shell: bash
         run: |
           VERSION="${GITHUB_REF#refs/tags/}"
           echo "VERSION=$VERSION" >> "$GITHUB_OUTPUT"
-          echo "SPARK_BARE=spark-${VERSION}-macos-arm64"     >> "$GITHUB_OUTPUT"
-          echo "SPARK_TARGZ=spark-${VERSION}-macos-arm64.tar.gz"  >> "$GITHUB_OUTPUT"
-          echo "SPARKLE_BARE=sparkle-${VERSION}-macos-arm64"   >> "$GITHUB_OUTPUT"
-          echo "SPARKLE_TARGZ=sparkle-${VERSION}-macos-arm64.tar.gz" >> "$GITHUB_OUTPUT"
+          echo "SPARK_BARE=os/macos/spark-${VERSION}-macos-arm64" >> "$GITHUB_OUTPUT"
+          echo "SPARK_TARGZ=os/macos/spark-${VERSION}-macos-arm64.tar.gz" >> "$GITHUB_OUTPUT"
+          echo "SPARKLE_BARE=os/macos/sparkle-${VERSION}-macos-arm64" >> "$GITHUB_OUTPUT"
+          echo "SPARKLE_TARGZ=os/macos/sparkle-${VERSION}-macos-arm64.tar.gz" >> "$GITHUB_OUTPUT"
+          echo "BUNDLE=os/macos/macos-arm64-${VERSION}.tar.gz" >> "$GITHUB_OUTPUT"
 
-      - name: Rename copies (bare binaries)
+      - name: 📁 Arrange assets (bare + bundle)
         shell: bash
         run: |
+          set -e
+          test -f target/release/spark
+          test -f target/release/sparkle
+          mkdir -p os/macos bundle/macos/all bundle/macos/spark bundle/macos/sparkle
+
           cp "target/release/spark"   "${{ steps.names.outputs.SPARK_BARE }}"
           cp "target/release/sparkle" "${{ steps.names.outputs.SPARKLE_BARE }}"
 
-      - name: Create tar.gz archives
-        shell: bash
-        run: |
+          cp target/release/spark   bundle/macos/all/
+          cp target/release/sparkle bundle/macos/all/
+          cp target/release/spark   bundle/macos/spark/
+          cp target/release/sparkle bundle/macos/sparkle/
+          tar -czf "${{ steps.names.outputs.BUNDLE }}" -C bundle/macos .
+
           tar -czf "${{ steps.names.outputs.SPARK_TARGZ }}"   -C target/release spark
           tar -czf "${{ steps.names.outputs.SPARKLE_TARGZ }}" -C target/release sparkle
 
-      - name: Upload macOS assets
+      - name: 🚀 Upload macOS assets
         uses: softprops/action-gh-release@v1
         with:
           files: |
@@ -108,46 +163,103 @@ jobs:
             ${{ steps.names.outputs.SPARKLE_BARE }}
             ${{ steps.names.outputs.SPARK_TARGZ }}
             ${{ steps.names.outputs.SPARKLE_TARGZ }}
+            ${{ steps.names.outputs.BUNDLE }}
+
+      - name: 🧾 Summary (macOS)
+        shell: bash
+        run: |
+          SIZE_SPARK=$(stat -f%z target/release/spark || echo 0)
+          SIZE_SPARKLE=$(stat -f%z target/release/sparkle || echo 0)
+          {
+            echo "## macOS ✅"
+            echo ""
+            echo "| Artifact | Size (bytes) | Asset name |"
+            echo "| --- | ---: | --- |"
+            echo "| spark | ${SIZE_SPARK} | ${{ steps.names.outputs.SPARK_BARE }} |"
+            echo "| sparkle | ${SIZE_SPARKLE} | ${{ steps.names.outputs.SPARKLE_BARE }} |"
+            echo ""
+            echo "- 📦 Extra: ${{ steps.names.outputs.SPARK_TARGZ }}, ${{ steps.names.outputs.SPARKLE_TARGZ }}"
+            echo "- 🗂 Bundle: ${{ steps.names.outputs.BUNDLE }}"
+          } >> "$GITHUB_STEP_SUMMARY"
 
   windows:
-    name: Windows (windows-latest)
+    name: 🪟 Windows (windows-latest)
     runs-on: windows-latest
     needs: create-release
     steps:
-      - uses: actions/checkout@v3
+      - name: 🔄 Checkout
+        uses: actions/checkout@v3
 
-      - name: Install Rust
+      - name: 🛠️ Install Rust
         uses: dtolnay/rust-toolchain@stable
 
-      - name: Build workspace (release)
-        run: cargo build --release --all
+      - name: 🏗️ Build workspace (release)
+        run: |
+          echo "::group::Compile (cargo build --release --all)"
+          cargo build --release --all
+          echo "::endgroup::"
+          echo "::notice title=Windows Build::Binaries in target/release"
 
-      - name: Prepare artifact names
+      - name: 🎛 Prepare names
         id: names
         shell: pwsh
         run: |
-          $version = "${env:GITHUB_REF}".Replace("refs/tags/","")
-          echo "VERSION=$version" >> $env:GITHUB_OUTPUT
-          echo "SPARK_ZIP=spark-$version-windows-amd64.zip"     >> $env:GITHUB_OUTPUT
-          echo "SPARKLE_ZIP=sparkle-$version-windows-amd64.zip" >> $env:GITHUB_OUTPUT
+          $v = "${env:GITHUB_REF}".Replace("refs/tags/","")
+          echo "VERSION=$v" >> $env:GITHUB_OUTPUT
+          echo "SPARK_BARE=os/windows/spark-$v-windows-amd64.exe"     >> $env:GITHUB_OUTPUT
+          echo "SPARKLE_BARE=os/windows/sparkle-$v-windows-amd64.exe" >> $env:GITHUB_OUTPUT
+          echo "SPARK_ZIP=os/windows/spark-$v-windows-amd64.zip"      >> $env:GITHUB_OUTPUT
+          echo "SPARKLE_ZIP=os/windows/sparkle-$v-windows-amd64.zip"  >> $env:GITHUB_OUTPUT
+          echo "BUNDLE=os/windows/windows-amd64-$v.zip"               >> $env:GITHUB_OUTPUT
 
-      - name: Package spark.exe (zip)
+      - name: 📁 Arrange assets (bare + bundle + zip)
         shell: pwsh
         run: |
           $releaseDir = "target/release"
           if (!(Test-Path "$releaseDir/spark.exe")) { throw "spark.exe not found in $releaseDir" }
-          Compress-Archive -Path "$releaseDir/spark.exe" -DestinationPath "${{ steps.names.outputs.SPARK_ZIP }}" -Force
-
-      - name: Package sparkle.exe (zip)
-        shell: pwsh
-        run: |
-          $releaseDir = "target/release"
           if (!(Test-Path "$releaseDir/sparkle.exe")) { throw "sparkle.exe not found in $releaseDir" }
-          Compress-Archive -Path "$releaseDir/sparkle.exe" -DestinationPath "${{ steps.names.outputs.SPARKLE_ZIP }}" -Force
 
-      - name: Upload Windows assets
+          New-Item -ItemType Directory -Force os/windows | Out-Null
+          New-Item -ItemType Directory -Force bundle/windows/all     | Out-Null
+          New-Item -ItemType Directory -Force bundle/windows/spark   | Out-Null
+          New-Item -ItemType Directory -Force bundle/windows/sparkle | Out-Null
+
+          Copy-Item "$releaseDir/spark.exe"   "${{ steps.names.outputs.SPARK_BARE }}"
+          Copy-Item "$releaseDir/sparkle.exe" "${{ steps.names.outputs.SPARKLE_BARE }}"
+
+          Copy-Item "$releaseDir/spark.exe"   "bundle/windows/all/"
+          Copy-Item "$releaseDir/sparkle.exe" "bundle/windows/all/"
+          Copy-Item "$releaseDir/spark.exe"   "bundle/windows/spark/"
+          Copy-Item "$releaseDir/sparkle.exe" "bundle/windows/sparkle/"
+
+          Compress-Archive -Path "$releaseDir/spark.exe"   -DestinationPath "${{ steps.names.outputs.SPARK_ZIP }}" -Force
+          Compress-Archive -Path "$releaseDir/sparkle.exe" -DestinationPath "${{ steps.names.outputs.SPARKLE_ZIP }}" -Force
+          Compress-Archive -Path "bundle/windows/*"        -DestinationPath "${{ steps.names.outputs.BUNDLE }}"     -Force
+
+      - name: 🚀 Upload Windows assets
         uses: softprops/action-gh-release@v1
         with:
           files: |
+            ${{ steps.names.outputs.SPARK_BARE }}
+            ${{ steps.names.outputs.SPARKLE_BARE }}
             ${{ steps.names.outputs.SPARK_ZIP }}
             ${{ steps.names.outputs.SPARKLE_ZIP }}
+            ${{ steps.names.outputs.BUNDLE }}
+
+      - name: 🧾 Summary (Windows)
+        shell: pwsh
+        run: |
+          $sizeSpark   = (Get-Item "target/release/spark.exe").Length
+          $sizeSparkle = (Get-Item "target/release/sparkle.exe").Length
+          $summary = @"
+## Windows ✅
+
+| Artifact | Size (bytes) | Asset name |
+| --- | ---: | --- |
+| spark | $sizeSpark | ${{ steps.names.outputs.SPARK_BARE }} |
+| sparkle | $sizeSparkle | ${{ steps.names.outputs.SPARKLE_BARE }} |
+
+- 📦 Extra: ${{ steps.names.outputs.SPARK_ZIP }}, ${{ steps.names.outputs.SPARKLE_ZIP }}
+- 🗂 Bundle: ${{ steps.names.outputs.BUNDLE }}
+"@
+          Add-Content -Path "$env:GITHUB_STEP_SUMMARY" -Value $summary
