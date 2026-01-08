@@ -36,6 +36,9 @@ Run this on your Raspberry Pi / VPS:
 sparkle
 ```
 
+<img width="358" height="67" alt="image" src="https://github.com/user-attachments/assets/dc4686fb-bd04-4f70-ac00-7de54a8ed4f9" />
+
+
 ### 3. Deploy from your Machine (CLI)
 
 Add a `spark.toml` to your project and deploy:
@@ -44,6 +47,10 @@ Add a `spark.toml` to your project and deploy:
 # Auto-discover device and deploy
 spark deploy --repo user/my-project
 ```
+
+<img width="791" height="207" alt="image" src="https://github.com/user-attachments/assets/7ca91006-224f-433b-8c3c-027af7427903" />
+
+
 
 ---
 
